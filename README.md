@@ -1,5 +1,7 @@
 # Awaaz Hisaab
 
+**Live demo:** https://awaaz-hisaab.vercel.app (opens the WhatsApp simulator; data resets on restarts)
+
 Voice-driven business automation over WhatsApp. A shopkeeper sends a voice note or text in Urdu, Roman Urdu, Punjabi, Pashto, Sindhi or English ("aaj 5000 ki sale hui"). The backend transcribes it, understands the intent, writes it into a double-entry ledger, and replies in the sender's language. Owners can also assign tasks to staff and ask for daily summaries.
 
 It works with **no API keys at all**: every external service (WhatsApp, speech-to-text, Claude) has a mock, so you can demo and test everything offline. It can also run fully on free, self-hosted open-source tools (whisper.cpp and Ollama) on an 8 GB PC; see [Free / open-source mode](#free--open-source-mode-no-paid-apis). It can also be deployed to Vercel as a public demo; see [Deploy to Vercel](#deploy-to-vercel).

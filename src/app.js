@@ -20,6 +20,11 @@ export function createApp(container) {
     },
   }));
 
+  // Landing route: send visitors to the simulator demo when it is enabled, else to the dashboard.
+  app.get('/', (_req, res) => {
+    res.redirect(302, config.devRoutes ? '/dev/simulator.html' : '/admin/');
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ ok: true, providers: { whatsapp: whatsapp.name, stt: stt.name, nlp: nlp.providerName } });
   });

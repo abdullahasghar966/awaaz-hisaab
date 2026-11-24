@@ -76,6 +76,9 @@ describe('dev routes', () => {
       assert.equal((await fetch(`${s.baseUrl}/dev/simulator.html`)).status, 200);
       const health = await (await fetch(`${s.baseUrl}/health`)).json();
       assert.deepEqual(health, { ok: true, providers: { whatsapp: 'mock', stt: 'mock', nlp: 'rules' } });
+      const root = await fetch(`${s.baseUrl}/`, { redirect: 'manual' });
+      assert.equal(root.status, 302);
+      assert.equal(root.headers.get('location'), '/dev/simulator.html');
     } finally {
       await s.close();
     }
@@ -89,6 +92,8 @@ describe('dev routes', () => {
       const res = await fetch(`${s.baseUrl}/dev/simulator.html`);
       assert.equal(res.status, 404);
       assert.equal((await fetch(`${s.baseUrl}/dev/outbox`)).status, 404);
+      const root = await fetch(`${s.baseUrl}/`, { redirect: 'manual' });
+      assert.equal(root.headers.get('location'), '/admin/');
     } finally {
       await s.close();
     }
