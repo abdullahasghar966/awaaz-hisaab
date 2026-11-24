@@ -1,0 +1,35 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA_ID_0001",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550000001",
+              "phone_number_id": "PHONE_NUMBER_ID_0001"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Bilal Traders" },
+                "wa_id": "923001234567"
+              }
+            ],
+            "messages": [
+              {
+                "from": "923001234567",
+                "id": "wamid.TEXT0001",
+                "timestamp": "1764000000",
+                "text": { "body": "aaj 5000 ki sale hui" },
+                "type": "text"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA_ID_0001",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550000001",
+              "phone_number_id": "PHONE_NUMBER_ID_0001"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Bilal Traders" },
+                "wa_id": "923001234567"
+              }
+            ],
+            "messages": [
+              {
+                "from": "923001234567",
+                "id": "wamid.AUDIO0001",
+                "timestamp": "1764000060",
+                "type": "audio",
+                "audio": {
+                  "mime_type": "audio/ogg; codecs=opus",
+                  "sha256": "c2FtcGxlLXNoYTI1Ni1oYXNo",
+                  "id": "MEDIA_ID_0001",
+                  "voice": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

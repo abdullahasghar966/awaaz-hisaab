@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Awaaz Hisaab admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Awaaz Hisaab admin</h1>
+    <span class="muted">Read-only dashboard</span>
+  </header>
+
+  <main id="admin-app">
+    <section class="card">
+      <form id="token-form" class="row">
+        <label for="token">Admin token</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false" required>
+        <button type="submit">Save token</button>
+        <button type="button" id="clear-token" class="ghost">Forget token</button>
+      </form>
+      <p class="hint">The token is kept in this browser only and sent as a Bearer header.</p>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <label for="business">Business</label>
+        <select id="business"></select>
+        <label for="period">Period</label>
+        <select id="period" hidden></select>
+        <label for="task-status" class="sr-only">Task status</label>
+        <select id="task-status" hidden></select>
+        <button type="button" id="refresh" class="ghost">Refresh</button>
+      </div>
+
+      <nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <div id="content"></div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
