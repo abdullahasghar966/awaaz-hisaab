@@ -11,4 +11,7 @@ export default {
   // Reuses the Urdu text, as 6.14 allows.
   help: ur.help,
   cancelled: ur.cancelled,
+
+  // Reuses the Urdu text, as the other partial keys do.
+  stt_not_configured: ur.stt_not_configured,
 };

@@ -40,6 +40,7 @@ export const REPLY_KEYS = [
   'not_registered',
   'error',
   'transcription_failed',
+  'stt_not_configured',
   'unsupported_message',
 ];
 

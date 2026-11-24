@@ -113,7 +113,9 @@ export function createPipeline({ config, services, nlp, stt, whatsapp, logger, c
         } catch (err) {
           logger?.warn('transcription failed', { error: err.message });
           messages.updateInbound(msgId, { error: err.message });
-          queue(to, 'transcription_failed', {}, user.language);
+          // The mock provider cannot read real audio. Say STT is not configured, not that the voice was unclear.
+          const notConfigured = stt.name === 'mock' && err.message === 'STT_NO_TRANSCRIPT';
+          queue(to, notConfigured ? 'stt_not_configured' : 'transcription_failed', {}, user.language);
           return await flush('error');
         }
       }

@@ -146,6 +146,9 @@ export default {
   transcription_failed: () =>
     'Sorry, I could not make out the voice. Please speak clearly again or send it as text.',
 
+  stt_not_configured: () =>
+    'Sorry, I cannot process voice notes right now: speech-to-text is not set up. Please send your message as text.',
+
   unsupported_message: () => 'Please send a voice note or a text message only.',
 };
 

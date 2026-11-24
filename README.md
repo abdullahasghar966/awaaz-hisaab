@@ -184,6 +184,22 @@ The app can run as a public demo on Vercel (serverless). `api/index.js` builds t
 
 The Vercel deployment sets `NODE_ENV=production`, so `DEV_ROUTES` is off unless you set it, and the webhook waits for processing before it answers (serverless functions are stopped after the response).
 
+### Free cloud speech-to-text (Groq)
+
+The Vercel demo has no speech-to-text key by default, so real WhatsApp voice notes get the "speech-to-text is not set up" reply. Groq runs Whisper behind an OpenAI-compatible API with a free tier, and the app's `openai` provider works with it unchanged.
+
+1. Create a free API key at https://console.groq.com.
+2. In Vercel, open the project and go to **Settings > Environment Variables**. Set:
+   - `STT_PROVIDER=openai`
+   - `OPENAI_API_KEY=<your Groq key>`
+   - `OPENAI_BASE_URL=https://api.groq.com/openai/v1`
+   - `STT_MODEL=whisper-large-v3-turbo`
+3. Redeploy the project so the new variables take effect.
+
+Groq sets the free-tier rate limits (requests per minute and per day, and audio seconds per hour). They change over time, so check the Groq console for the current numbers. When a limit is hit, the voice note gets the "could not make out the voice" reply, and the message log shows `STT_HTTP_429` as the error.
+
+**Browser voice in the simulator.** `DEV_ROUTES=true` enables the simulator. Its "Hold to record" button also transcribes the voice in the browser (Web Speech API, Chrome or Edge), and sends the text along as `transcript`. Without a speech-to-text key the server uses that text, so the simulator works end to end on Vercel for free. With a Groq key set, the server transcribes the audio itself and ignores the browser text.
+
 **Limitations**
 
 - **Demo only.** The SQLite database lives in `/tmp/app.db`. Only `/tmp` is writable on Vercel, so data is lost on cold starts and different instances can have different data.

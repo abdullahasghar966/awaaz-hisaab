@@ -134,3 +134,38 @@ test('createStt selects the provider from config', () => {
   assert.equal(createStt({ provider: 'openai', apiKey: 'k', model: 'whisper-1', language: '', baseUrl: 'https://api.openai.com/v1' }).name, 'openai');
   assert.throws(() => createStt({ provider: 'nope' }), /Unknown STT provider/);
 });
+
+test('openai provider works against Groq (OpenAI-compatible): path, model and json response', async () => {
+  // Groq serves Whisper at <base>/audio/transcriptions and accepts json, verbose_json and text.
+  // Its json response has no `language` field, so the language stays null unless the retry forces Urdu.
+  const fetchImpl = fakeFetch([jsonResponse({ text: ' aaj 5000 ki sale hui ', x_groq: { id: 'req_1' } })]);
+  const stt = createOpenAiStt({
+    apiKey: 'gsk-test',
+    model: 'whisper-large-v3-turbo',
+    language: 'ur',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    fetchImpl,
+  });
+
+  const result = await stt.transcribe({ buffer: Buffer.from('OggS'), mimeType: 'audio/ogg' });
+
+  assert.deepEqual(result, { text: 'aaj 5000 ki sale hui', language: null, provider: 'openai' });
+  const { url, init } = fetchImpl.calls[0];
+  assert.equal(url, 'https://api.groq.com/openai/v1/audio/transcriptions');
+  assert.equal(init.headers.Authorization, 'Bearer gsk-test');
+  const form = init.body;
+  assert.equal(form.get('model'), 'whisper-large-v3-turbo');
+  assert.equal(form.get('response_format'), 'json');
+  assert.equal(form.get('language'), 'ur');
+  assert.equal(form.get('file').name, 'audio.ogg');
+});
+
+test('createStt: openai provider with a Groq base URL keeps the Groq endpoint', async () => {
+  const fetchImpl = fakeFetch([jsonResponse({ text: 'hello' })]);
+  const stt = createStt(
+    { provider: 'openai', apiKey: 'gsk', model: 'whisper-large-v3-turbo', language: '', baseUrl: 'https://api.groq.com/openai/v1' },
+    { fetchImpl },
+  );
+  await stt.transcribe({ buffer: Buffer.from('x') });
+  assert.equal(fetchImpl.calls[0].url, 'https://api.groq.com/openai/v1/audio/transcriptions');
+});

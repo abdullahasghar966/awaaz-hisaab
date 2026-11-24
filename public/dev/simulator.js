@@ -1,8 +1,27 @@
 // Chat simulator (6.17). Sends text or a recorded voice note to POST /dev/simulate and renders the replies.
+// Voice notes are also transcribed in the browser (Web Speech API); the text goes along as `transcript`.
 // Every value goes through textContent; Urdu text is shown with dir="auto".
 
 const DEFAULT_PHONE = '923001234567';
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+const DEFAULT_LANG = 'ur-PK';
+const LANG_STORAGE_KEY = 'awaaz-hisaab.sttLang';
+// How long to wait for the recognizer's final result after the button is released.
+export const STT_WAIT_MS = 1500;
+
+export const STT_LANGUAGES = [
+  { code: 'ur-PK', label: 'Urdu' },
+  { code: 'en-US', label: 'English' },
+  { code: 'pa-Guru-IN', label: 'Punjabi' },
+  { code: 'ps-AF', label: 'Pashto' },
+  { code: 'sd-IN', label: 'Sindhi' },
+];
+
+export const MESSAGES = {
+  noSpeech: "This browser can't transcribe speech — use Chrome or Edge, or type the message.",
+  noWords: "Couldn't hear any words — try again or type the message",
+  notAllowed: 'Microphone access was blocked. Allow the microphone for this site in your browser settings, then try again.',
+};
 
 // fetchImpl is injected so the API client can be tested without a server.
 export function createSimulatorApi({ baseUrl = '', fetchImpl = fetch } = {}) {
@@ -52,7 +71,126 @@ export function bubble(doc, kind, text, meta = '') {
   return node;
 }
 
-export function init({ doc = globalThis.document, fetchImpl, mediaRecorderCtor = globalThis.MediaRecorder, getUserMedia } = {}) {
+// The browser's speech recognizer constructor, or null when the browser has none (Firefox, some mobile browsers).
+export function speechRecognitionCtor(scope = globalThis) {
+  return scope.SpeechRecognition || scope.webkitSpeechRecognition || null;
+}
+
+function storageOrNull() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null; // blocked by the browser (e.g. some sandboxed frames)
+  }
+}
+
+export function readSavedLanguage(storage = storageOrNull()) {
+  try {
+    const saved = storage?.getItem(LANG_STORAGE_KEY);
+    if (STT_LANGUAGES.some((lang) => lang.code === saved)) return saved;
+  } catch {
+    // unreadable storage: fall back to the default
+  }
+  return DEFAULT_LANG;
+}
+
+export function saveLanguage(code, storage = storageOrNull()) {
+  try {
+    storage?.setItem(LANG_STORAGE_KEY, code);
+  } catch {
+    // not remembered; the selection still works for this page view
+  }
+}
+
+// Wraps one Web Speech recognition run. Interim text is reported through onInterim; finish() stops listening
+// and resolves with { text, blocked } after the final result, or after STT_WAIT_MS at most.
+export function createSpeechSession(Ctor, { lang = DEFAULT_LANG, onInterim, onError } = {}) {
+  const rec = new Ctor();
+  rec.lang = lang;
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  const finals = [];
+  let interim = '';
+  let stopping = false;
+  let blocked = false;
+  let resolveEnded;
+  const ended = new Promise((resolve) => {
+    resolveEnded = resolve;
+  });
+
+  const current = () => [...finals, interim.trim()].filter(Boolean).join(' ');
+
+  rec.onresult = (event) => {
+    interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      const result = event.results[i];
+      const text = result[0]?.transcript ?? '';
+      if (result.isFinal) {
+        if (text.trim()) finals.push(text.trim());
+      } else {
+        interim += text;
+      }
+    }
+    onInterim?.(current());
+  };
+
+  rec.onerror = (event) => {
+    const code = event?.error ?? 'unknown';
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      blocked = true;
+      stopping = true;
+    }
+    if (code !== 'no-speech' && code !== 'aborted') onError?.(code);
+  };
+
+  rec.onend = () => {
+    // Browsers end continuous sessions on their own after silence; restart while the button is still held.
+    if (!stopping) {
+      try {
+        rec.start();
+        return;
+      } catch {
+        // could not restart: treat the session as ended
+      }
+    }
+    resolveEnded();
+  };
+
+  rec.start(); // throws if the browser refuses to start; the caller handles it
+
+  return {
+    get blocked() {
+      return blocked;
+    },
+    finish() {
+      stopping = true;
+      try {
+        rec.stop();
+      } catch {
+        // already stopped
+      }
+      let timer = null;
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(resolve, STT_WAIT_MS);
+      });
+      return Promise.race([ended, timeout]).then(() => {
+        clearTimeout(timer);
+        return { text: current(), blocked };
+      });
+    },
+  };
+}
+
+// fetchImpl, mediaRecorderCtor, getUserMedia and speechCtor are injectable for tests. speechCtor: null disables speech.
+export function init({
+  doc = globalThis.document,
+  fetchImpl,
+  mediaRecorderCtor = globalThis.MediaRecorder,
+  getUserMedia,
+  speechCtor = speechRecognitionCtor(),
+  storage = storageOrNull(),
+} = {}) {
   const root = doc?.getElementById('simulator');
   if (!root) return null;
 
@@ -62,13 +200,28 @@ export function init({ doc = globalThis.document, fetchImpl, mediaRecorderCtor =
   const textInput = $('text');
   const sendButton = $('send');
   const recordButton = $('record');
+  const langSelect = $('lang');
+  const interimLine = $('interim');
   const log = $('log');
   const statusLine = $('status');
 
   phoneInput.value = DEFAULT_PHONE;
 
+  for (const lang of STT_LANGUAGES) {
+    const option = doc.createElement('option');
+    option.value = lang.code;
+    option.textContent = lang.label;
+    langSelect.append(option);
+  }
+  langSelect.value = readSavedLanguage(storage);
+  langSelect.addEventListener('change', () => saveLanguage(langSelect.value, storage));
+
   function setStatus(text) {
     statusLine.textContent = text;
+  }
+
+  function setInterim(text) {
+    interimLine.textContent = text;
   }
 
   function append(node) {
@@ -139,47 +292,112 @@ export function init({ doc = globalThis.document, fetchImpl, mediaRecorderCtor =
   let recorder = null;
   let chunks = [];
   let stream = null;
+  let speech = null; // recognizer session for the recording in progress
+  let pendingSpeech = null; // finish() promise handed from stopRecording to finishRecording
+  let holding = false; // true from press until release; checked again after the async mic prompt
+
+  function releaseStream() {
+    stream?.getTracks().forEach((track) => track.stop());
+    stream = null;
+  }
+
+  function onSpeechError(code) {
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      setStatus(MESSAGES.notAllowed);
+    } else {
+      setStatus(`Speech recognition error: ${code}. Try again or type the message.`);
+    }
+  }
 
   async function startRecording() {
-    if (recorder) return;
+    if (holding || recorder) return;
+    holding = true;
     const from = phone();
     if (!from) {
+      holding = false;
       setStatus('Enter a valid phone number before recording.');
       return;
     }
     if (!mediaRecorderCtor) {
+      holding = false;
       setStatus('This browser cannot record audio.');
       return;
     }
     try {
       stream = await (getUserMedia ?? globalThis.navigator.mediaDevices.getUserMedia.bind(globalThis.navigator.mediaDevices))({ audio: true });
-      chunks = [];
+    } catch (err) {
+      holding = false;
+      setStatus(`Microphone unavailable: ${err.message}`);
+      return;
+    }
+    if (!holding) {
+      // released while the microphone prompt was open
+      releaseStream();
+      return;
+    }
+
+    chunks = [];
+    setInterim('');
+    try {
       recorder = new mediaRecorderCtor(stream, { mimeType: 'audio/webm' });
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data && event.data.size > 0) chunks.push(event.data);
       });
       recorder.addEventListener('stop', () => finishRecording(from));
       recorder.start();
-      recordButton.setAttribute('aria-pressed', 'true');
-      setStatus('Recording... release to send.');
     } catch (err) {
+      holding = false;
       recorder = null;
+      releaseStream();
       setStatus(`Microphone unavailable: ${err.message}`);
+      return;
     }
+
+    let hint = '';
+    speech = null;
+    if (speechCtor) {
+      try {
+        speech = createSpeechSession(speechCtor, {
+          lang: langSelect.value,
+          onInterim: (text) => setInterim(text),
+          onError: onSpeechError,
+        });
+      } catch (err) {
+        hint = `Speech recognition could not start (${err.message}).`;
+      }
+    } else {
+      hint = MESSAGES.noSpeech;
+    }
+    recordButton.setAttribute('aria-pressed', 'true');
+    langSelect.disabled = true;
+    setStatus(['Recording... release to send.', hint].filter(Boolean).join(' '));
   }
 
   function stopRecording() {
+    if (!holding) return;
+    holding = false;
+    if (speech) {
+      pendingSpeech = speech.finish();
+      speech = null;
+    }
     if (recorder && recorder.state !== 'inactive') recorder.stop();
   }
 
   async function finishRecording(from) {
     recordButton.setAttribute('aria-pressed', 'false');
-    stream?.getTracks().forEach((track) => track.stop());
+    langSelect.disabled = false;
+    releaseStream();
+    const heard = pendingSpeech ? await pendingSpeech : null;
+    pendingSpeech = null;
     const blob = new Blob(chunks, { type: 'audio/webm' });
     chunks = [];
     recorder = null;
-    stream = null;
+    setInterim('');
 
+    if (heard?.blocked) {
+      setStatus(MESSAGES.notAllowed);
+      return;
+    }
     if (blob.size === 0) {
       setStatus('Nothing was recorded.');
       return;
@@ -189,10 +407,16 @@ export function init({ doc = globalThis.document, fetchImpl, mediaRecorderCtor =
       setStatus('');
       return;
     }
+    if (heard && !heard.text) {
+      setStatus(MESSAGES.noWords);
+      return;
+    }
     const audioBase64 = bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
     const userNode = bubble(doc, 'me', '[voice note]', `from ${from}`);
     append(userNode);
-    send({ from, audioBase64, mimeType: 'audio/webm' }, userNode);
+    const payload = { from, audioBase64, mimeType: 'audio/webm' };
+    if (heard?.text) payload.transcript = heard.text;
+    send(payload, userNode);
   }
 
   recordButton.addEventListener('pointerdown', (event) => {

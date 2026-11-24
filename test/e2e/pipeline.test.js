@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer } from '../helpers/app.js';
+import { createPipeline } from '../../src/pipeline/orchestrator.js';
 
 const OWNER = '923001112222';
 const STAFF = '923001234567';
@@ -68,10 +69,18 @@ describe('pipeline (mocks, in-memory DB)', () => {
     assert.equal(srv.container.whatsapp.outbox.length, r.replies.length);
   });
 
-  it('answers transcription_failed when STT throws', async () => {
+  it('answers stt_not_configured when the mock STT has no transcript', async () => {
     srv.container.whatsapp.registerMedia('media-2', { buffer: Buffer.from('no transcript here'), mimeType: 'audio/ogg' });
     const r = await send(OWNER, null, { type: 'audio', mediaId: 'media-2' });
     assert.equal(r.status, 'error');
+    assert.equal(r.replies.at(-1).key, 'stt_not_configured');
+  });
+
+  it('answers transcription_failed when a real STT provider throws', async () => {
+    const failing = { name: 'openai', transcribe: async () => { throw new Error('STT_HTTP_429'); } };
+    const pipe = createPipeline({ config: srv.container.config, services, nlp: srv.container.nlp, stt: failing, whatsapp: srv.container.whatsapp, logger: null, clock: srv.container.clock });
+    srv.container.whatsapp.registerMedia('media-3', { buffer: Buffer.from('x'), mimeType: 'audio/ogg' });
+    const r = await pipe.handleIncoming({ waMessageId: 'm-audio-3', from: OWNER, type: 'audio', text: null, mediaId: 'media-3', mimeType: null, profileName: null, timestamp: 1 });
     assert.equal(r.replies.at(-1).key, 'transcription_failed');
   });
 

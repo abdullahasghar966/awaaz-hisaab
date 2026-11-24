@@ -73,6 +73,16 @@
       max-width: 100%;
     }
     input[type="tel"] { width: 180px; }
+    select {
+      font: inherit;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      max-width: 100%;
+    }
+    .interim { min-height: 1.2em; margin: -6px 0 0; font-style: italic; overflow-wrap: anywhere; }
     #text { flex: 1 1 200px; min-width: 0; }
     button {
       background: var(--accent);
@@ -129,15 +139,19 @@
       <h1>Awaaz Hisaab simulator</h1>
       <span class="muted">Dev only. Replies are not sent to WhatsApp.</span>
     </header>
+    <p class="muted">Voice is transcribed by your browser (Chrome/Edge) in this demo. Real WhatsApp voice notes use the server's speech-to-text.</p>
 
     <div class="row">
       <label for="phone" class="muted">Phone</label>
       <input id="phone" type="tel" inputmode="numeric" autocomplete="off" value="923001234567">
+      <label for="lang" class="muted">Voice language</label>
+      <select id="lang"></select>
     </div>
 
     <section id="log" class="chat" role="log" aria-live="polite" aria-label="Conversation"></section>
 
     <p id="status" class="status" role="status" aria-live="polite"></p>
+    <p id="interim" class="muted interim" dir="auto" aria-live="off"></p>
 
     <form id="composer" class="row">
       <label for="text" class="sr-only">Message</label>

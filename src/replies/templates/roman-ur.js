@@ -154,6 +154,9 @@ export default {
   transcription_failed: () =>
     'Maazrat, awaaz samajh nahi aayi. Dobara saaf awaaz mein bolein ya likh kar bhejein.',
 
+  stt_not_configured: () =>
+    'Voice note abhi samajh nahi sakte: speech-to-text set nahi hai. Message likh kar bhejein.',
+
   unsupported_message: () => 'Sirf voice note ya text message bhejein.',
 };
 
